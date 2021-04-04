@@ -220,10 +220,10 @@ function filter(p, s)
     local h = head(s)
     if p(h) then
       return new(h, function()
-        return filter(p, tail(h))
+        return filter(p, tail(s))
       end)
     else
-      return filter(p, tail(h))
+      return filter(p, tail(s))
     end
   end
 end

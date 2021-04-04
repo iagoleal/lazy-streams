@@ -31,13 +31,21 @@ else
   _ENV = M      -- for 5.2+
 end
 
+-----------------------
+-- Auxiliary functions
+-----------------------
+
 -- Constant function
-function const(x)
+local function const(x)
   return function() return x end
 end
 
--- Class for lazy streams
-Stream = {}
+-- Flip first two arguments of a function
+local function flip(f)
+  return function(x, y, ...)
+    return f(y, x, ...)
+  end
+end
 
 -- Memoize any constructor
 local function delay(proc)
@@ -60,36 +68,58 @@ local function force(f)
   return f()
 end
 
-------------
+-- Pretty printer
+pp = function(t)
+  if isstream(t) then
+    return pp(collect(t))
+  end
+  io.write('[')
+  for _, v in ipairs(t) do
+    io.write(tostring(v), ", ")
+  end
+  io.write(']\n')
+end
+
+---------------------------
 -- Creation
-------------
+---------------------------
+
+-- Class for lazy streams
+Stream = {}
+
+-- Table to store all ':' methods for a stream
+local methods = {}
 
 -- The empty stream
 empty = nil
 
-function isempty(s)
-  return s == nil
-end
-
+-- Create a new stream from a starting value
+-- and a procedure to generate another stream.
 function new(val, constructor)
   assert(type(constructor) == "function", "Function needed to build stream")
   constructor = constructor or const(nil)
   local t = { value = val
             , next  = delay(constructor)
             }
+  local address = tostring(t)
   setmetatable(t,
     { __type = "stream"
     , __tostring = function(s)
       if isempty(s) then
         return "empty"
       end
-      return table.concat {'stream [', tostring(s.value), ', ...]'}
+      return 'stream: ' .. address
     end
     , __index = function(s, idx)
-        return access(s, idx)
+        if type(idx) == "number" then
+          return access(s, idx)
+        end
+        if type(idx) == "string" then
+          return methods[idx]
+        end
       end
-    , __setindex = function(t, k, v)
-      error("Streams are read-only --- Try creating a new one", 2)
+    , __newindex = function(t, k, v)
+      error("Stream indices are read-only --- Try creating a new stream", 2)
     end
     , __len   = function(s)
         local op = function(x,y) return 1 + y end
@@ -99,21 +129,38 @@ function new(val, constructor)
   return t
 end
 
+-- Add value to the front of stream.
+function cons(val, stream)
+  return new(val, const(stream))
+end
 
 
+----------------------
+-- Boolean predicates
+----------------------
+
+-- Check if input is a stream
 function isstream(s)
   local mt = getmetatable(s)
   return mt and mt.__type == "stream"
 end
 
-function cons(val, stream)
-  return new(val, const(stream))
+-- Check if input is empty
+function isempty(s)
+  return s == nil
 end
+
+
+----------------------
 -- Accessor functions
+----------------------
+
+-- Return first value of stream
 function head(s)
   return rawget(s, 'value')
 end
 
+-- Return all values of stream but first
 function tail(s)
   return force(s.next)
 end
@@ -193,6 +240,8 @@ end
 -- Slicing streams
 -------------------
 
+-- TODO: takewhile, dropWhile, splitAt
+
 -- Truncate the first n elements of a stream
 function take(n, s)
   if isempty(s) then return empty end
@@ -237,9 +286,9 @@ function collect(s, n)
   return values
 end
 
-----------------
--- Construction
-----------------
+---------------------
+-- Construct streams
+---------------------
 
 -- A stream of number from i to j.
 -- Default step is 1.
@@ -260,13 +309,19 @@ function replicate(x)
   end)
 end
 
-pp = function(t)
-  if isstream(t) then
-    return pp(collect(t))
+-- Build a stream according to a rule function and a seed value.
+-- Each step of construction if given by the function f.
+-- f(seed) should either return a value to be added to the list and a new seed to iterate,
+-- or return nil, in which case the stream construct stops.
+function unfoldr(f, seed)
+  local a, b = f(seed)
+  if a == nil and b == nil then
+    return empty
   end
-  io.write('[')
-  for _, v in ipairs(t) do
-    io.write(tostring(v), ", ")
+  return new(a, function()
+    return unfoldr(f, b)
+  end)
+end
 
 -----------------------
 -- Set methods
@@ -280,7 +335,6 @@ do
   mt.map     = function(self, f)
     return map(f, self)
   end
-  io.write(']\n')
   mt.filter  = flip(filter)
   mt.fold    = function(self, op, base)
     return fold(op, base, self)

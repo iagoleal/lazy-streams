@@ -1,5 +1,9 @@
 # Lazy Streams in Lua
 
+| **Build Status** |
+|:----------------:|
+| [![Build Status][build-img]][build-url] |
+
 A Lua library to manipulate lazy linked lists.
 Highly based on Haskell's list type.
 
@@ -45,3 +49,6 @@ end
 -- Stream of all prime numbers
 local primes = sieve(s.range(2))
 ```
+
+[build-img]: https://github.com/iagoleal/lazy-streams/actions/workflows/ci.yml/badge.svg?branch=master
+[build-url]: https://github.com/iagoleal/lazy-streams/actions/workflows/ci.yml

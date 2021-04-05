@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+    tags: '*'
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / version ${{ matrix.luaVersion }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        luaVersion: ["5.1", "5.2", "5.3", "5.4", "luajit"]
+    steps:
+    - uses: actions/checkout@master
+    - uses: leafo/gh-actions-lua@v8.0.0
+      with:
+        luaVersion: ${{ matrix.luaVersion }}
+    - uses: leafo/gh-actions-luarocks@v4.0.0
+    - name: Compile
+      run: |
+        lua init.lua

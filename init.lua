@@ -118,11 +118,11 @@ function new(val, constructor)
           return methods[idx]
         end
       end
-    , __newindex = function(t, k, v)
+    , __newindex = function()
       error("Stream indices are read-only --- Try creating a new stream", 2)
     end
     , __len   = function(s)
-        local op = function(x,y) return 1 + y end
+        local op = function(_,y) return 1 + y end
         return fold(op, 0, s)
       end
     })
@@ -213,6 +213,13 @@ function map(f, ...)
   end)
 end
 
+-- Zip n streams together into a single one.
+function zip(...)
+  local f = function(...) return {...} end
+  return map(f, ...)
+end
+
+--- Create a new stream with only the elements satisfying a given predicate.
 function filter(p, s)
   if isempty(s) then
     return empty
@@ -228,6 +235,8 @@ function filter(p, s)
   end
 end
 
+--- inductively apply a binary operation to the elements of a stream.
+-- Note: Associates to the right.
 function fold(op, base, s)
   if isempty(s) then
     return base
@@ -313,13 +322,13 @@ end
 -- Each step of construction if given by the function f.
 -- f(seed) should either return a value to be added to the list and a new seed to iterate,
 -- or return nil, in which case the stream construct stops.
-function unfoldr(f, seed)
+function unfold(f, seed)
   local a, b = f(seed)
   if a == nil and b == nil then
     return empty
   end
   return new(a, function()
-    return unfoldr(f, b)
+    return unfold(f, b)
   end)
 end
 
